@@ -190,11 +190,6 @@ int select_max_spare_capacity(struct task_struct *p, int target)
 			continue;
 #endif
 
-#ifdef CONFIG_SCHED_WALT
-		if (walt_cpu_high_irqload(cpu))
-			continue;
-#endif
-
 		if (idle_cpu(cpu))
 			return cpu;
 
@@ -908,8 +903,6 @@ update_sg_util(struct task_struct *p, int dst_cpu,
 		const struct cpumask *sg_mask, struct sg_state *sg_env)
 {
 	int cpu = cpumask_first(sg_mask);
-	struct sched_domain *sd;
-	const struct sched_group *sg;
 	const struct sched_group_energy *sge;
 	unsigned long new_util;
 	int idx, max_idx;
@@ -1731,9 +1724,6 @@ static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
 inline int
 task_match_on_dst_cpu(struct task_struct *p, int src_cpu, int target_cpu)
 {
-	struct task_struct *target_tsk;
-	struct rq *rq = cpu_rq(target_cpu);
-
 #ifdef CONFIG_MTK_SCHED_BOOST
 	if (task_prefer_match(p, src_cpu))
 		return 0;
@@ -1742,7 +1732,6 @@ task_match_on_dst_cpu(struct task_struct *p, int src_cpu, int target_cpu)
 	if (task_prefer_fit(target_tsk, target_cpu))
 		return 0;
 #endif
-
 	return 1;
 }
 
@@ -1780,19 +1769,6 @@ bool set_uclamp;
 void set_sched_rotation_enable(bool enable)
 {
 	sysctl_sched_rotation_enable = enable;
-}
-
-bool is_min_capacity_cpu(int cpu)
-{
-	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-
-	if (rd->min_cap_orig_cpu < 0)
-		return false;
-
-	if (capacity_orig_of(cpu) == capacity_orig_of(rd->min_cap_orig_cpu))
-		return true;
-
-	return false;
 }
 
 static void task_rotate_work_func(struct work_struct *work)
@@ -1880,10 +1856,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	wc = ktime_get_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
-
-		if (!is_min_capacity_cpu(i))
-			continue;
-
+		
 		if (is_reserved(i))
 			continue;
 

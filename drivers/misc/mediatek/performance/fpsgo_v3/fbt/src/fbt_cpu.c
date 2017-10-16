@@ -211,7 +211,6 @@ static int llf_task_policy;
 static int set_isolation;
 
 static int cluster_num;
-static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
 static int max_cap_cluster, min_cap_cluster;
 static unsigned int def_capacity_margin;
@@ -1757,10 +1756,6 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 		return;
 	}
 
-	if (cpu_max_freq <= 1)
-		fpsgo_systrace_c_fbt(pid, buffer_id, cpu_max_freq,
-			"cpu_max_freq");
-
 	for (cluster = 0 ; cluster < cluster_num; cluster++) {
 		tgt_opp = fbt_get_opp_by_normalized_cap(blc_wt, cluster);
 
@@ -1770,9 +1765,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 		mbhr_opp = max((clus_opp[cluster] - bhr_opp), 0);
 
 		mbhr = clus_floor_freq[cluster] * 100U;
-		mbhr = mbhr / cpu_max_freq;
 		mbhr = mbhr + (unsigned int)bhr;
-		mbhr = (min(mbhr, 100U) * cpu_max_freq);
 		mbhr = mbhr / 100U;
 
 		for (i = (NR_FREQ_CPU - 1); i > 0; i--) {
@@ -3107,18 +3100,12 @@ static void fbt_update_pwd_tbl(void)
 			min_cap_cluster = cluster;
 		}
 
-		if (cpu_dvfs[cluster].power[0] > cpu_max_freq)
-			cpu_max_freq = cpu_dvfs[cluster].power[0];
 	}
 
 	max_cap_cluster = clamp(max_cap_cluster, 0, cluster_num - 1);
 	min_cap_cluster = clamp(min_cap_cluster, 0, cluster_num - 1);
 	fbt_set_cap_limit();
 
-	if (!cpu_max_freq) {
-		FPSGO_LOGE("NULL power table\n");
-		cpu_max_freq = 1;
-	}
 }
 
 static void fbt_setting_exit(void)

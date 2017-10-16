@@ -242,16 +242,14 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 
 static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 {
-	unsigned long max_cap;
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long cfs_max;
+	struct sugov_cpu *loadcpu = &per_cpu(sugov_cpu, cpu);
 
-	max_cap = arch_scale_cpu_capacity(NULL, cpu);
+	cfs_max = arch_scale_cpu_capacity(NULL, cpu);
 
-	*util = boosted_cpu_util(cpu);
-	if (idle_cpu(cpu))
-		*util = 0;
-
-	*util = min(*util, max_cap);
-	*max = max_cap;
+	*util = min(rq->cfs.avg.util_avg, cfs_max);
+	*max = cfs_max;
 }
 
 static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,

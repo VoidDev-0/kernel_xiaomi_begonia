@@ -117,9 +117,9 @@ enum SCHED_LB_TYPE {
 };
 
 #ifdef CONFIG_MTK_SCHED_BOOST
-extern bool sched_boost(void);
+static inline int sched_boost(void);
 #else
-static inline bool sched_boost(void)
+static inline int sched_boost(void)
 {
 	return 0;
 }
