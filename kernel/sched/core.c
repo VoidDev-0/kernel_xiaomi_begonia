@@ -994,6 +994,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	/* update last_enqueued_ts for big task rotation */
 	p->last_enqueued_ts = ktime_get_ns();
+	walt_update_last_enqueue(p);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)

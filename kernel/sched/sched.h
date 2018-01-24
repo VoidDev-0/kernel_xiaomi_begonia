@@ -1282,7 +1282,7 @@ enum numa_faults_stats {
 extern void sched_setnuma(struct task_struct *p, int node);
 extern int migrate_task_to(struct task_struct *p, int cpu);
 #endif /* CONFIG_NUMA_BALANCING */
-extern int migrate_swap(struct task_struct *src, struct task_struct *dst);
+extern int migrate_swap(struct task_struct *cur, struct task_struct *p);
 
 #ifdef CONFIG_SMP
 

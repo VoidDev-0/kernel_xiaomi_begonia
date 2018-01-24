@@ -35,6 +35,7 @@ extern unsigned int sysctl_sched_cpu_high_irqload;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_group_upmigrate_pct;
 extern unsigned int sysctl_sched_group_downmigrate_pct;
+extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 
 extern int
 walt_proc_update_handler(struct ctl_table *table, int write,
@@ -70,6 +71,9 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *length,
 		loff_t *ppos);
 #endif
+
+extern int sched_boost_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
 
 /*
  *  control realtime throttling:

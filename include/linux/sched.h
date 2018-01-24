@@ -869,13 +869,12 @@ struct task_struct {
 	u32 init_load_pct;
 	u64 last_wake_ts;
 	u64 last_switch_out_ts;
-	u64 last_cpu_selected_ts;
+	u64 last_enqueued_ts;
 	struct related_thread_group *grp;
 	struct list_head grp_list;
 	u64 cpu_cycles;
 	bool misfit;
 #endif
-	u64 last_enqueued_ts;
 
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group		*sched_task_group;
