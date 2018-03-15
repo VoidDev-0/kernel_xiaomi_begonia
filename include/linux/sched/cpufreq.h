@@ -15,6 +15,7 @@
 #define SCHED_CPUFREQ_WALT (1U << 4)
 #define SCHED_CPUFREQ_PL	(1U << 5)
 #define SCHED_CPUFREQ_EARLY_DET (1U << 6)
+#define SCHED_CPUFREQ_CONTINUE (1U << 7)
 
 #ifdef CONFIG_CPU_FREQ
 struct update_util_data {
