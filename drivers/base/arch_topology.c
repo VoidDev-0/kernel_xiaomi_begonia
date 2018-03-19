@@ -28,6 +28,7 @@ DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, max_cpu_freq);
 DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, min_freq_scale) = 0;
+DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;
 
 #ifdef CONFIG_NONLINEAR_FREQ_CTL
 #include "arch_topology_plus.c"
@@ -411,6 +412,7 @@ bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
 	if (!ret) {
+		per_cpu(efficiency, cpu) = cpu_capacity;
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
 					       sizeof(*raw_capacity),

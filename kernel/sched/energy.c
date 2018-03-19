@@ -188,12 +188,9 @@ static int sched_energy_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		struct device *cpu_dev;
 		struct dev_pm_opp *opp;
-<<<<<<< HEAD
-=======
-		int efficiency = topology_get_cpu_scale(NULL, cpu);
+		int efficiency = topology_get_cpu_efficiency(cpu);
 
 		max_efficiency = max(efficiency, max_efficiency);
->>>>>>> 1f925d3a2d55 (sched: walt/energy: use topology_get_cpu_scale to get the efficiency)
 
 		cpu_dev = get_cpu_device(cpu);
 		if (IS_ERR_OR_NULL(cpu_dev)) {
@@ -224,7 +221,7 @@ static int sched_energy_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		unsigned long cpu_max_cap;
 		struct sched_group_energy *sge_l0, *sge;
-		int efficiency = topology_get_cpu_scale(NULL, cpu);
+		int efficiency = topology_get_cpu_efficiency(cpu);
 
 		cpu_max_cap = DIV_ROUND_UP(SCHED_CAPACITY_SCALE *
 					   max_frequencies[cpu], max_freq);
