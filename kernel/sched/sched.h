@@ -961,6 +961,7 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	bool notif_pending;
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -2579,6 +2580,25 @@ DECLARE_PER_CPU(struct update_util_data *, cpufreq_update_util_data);
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 {
 	struct update_util_data *data;
+
+#ifdef CONFIG_SCHED_WALT
+	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
+				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET |
+				SCHED_CPUFREQ_FORCE_UPDATE;
+
+	/*
+	 * Skip if we've already reported, but not if this is an inter-cluster
+	 * migration. Also only allow WALT update sites.
+	 */
+	if (!(flags & SCHED_CPUFREQ_WALT))
+		return;
+	if (!sched_disable_window_stats &&
+		(rq->load_reported_window == rq->window_start) &&
+		!(flags & exception_flags))
+		return;
+	if (!(flags & exception_flags))
+		rq->load_reported_window = rq->window_start;
+#endif
 
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
 						  cpu_of(rq)));
