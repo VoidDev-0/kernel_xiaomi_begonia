@@ -3207,3 +3207,15 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 #endif	/* CONFIG_SCHED_WALT */
+
+static inline bool energy_aware(void)
+{
+	return sched_feat(ENERGY_AWARE);
+}
+
+struct sched_avg_stats {
+	int nr;
+	int nr_misfit;
+	int nr_max;
+};
+extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
