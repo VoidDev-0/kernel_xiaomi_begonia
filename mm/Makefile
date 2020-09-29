@@ -113,3 +113,4 @@ obj-$(CONFIG_PERCPU_STATS) += percpu-stats.o
 obj-$(CONFIG_HMM) += hmm.o
 
 CFLAGS_kmemleak.o += -DCONFIG_DEBUG_FS
+obj-$(CONFIG_DAMON) += damon/
