@@ -908,6 +908,7 @@ struct task_struct {
 #endif
 #ifdef CONFIG_MEMCG
 	unsigned			memcg_may_oom:1;
+	unsigned			in_user_fault:1;
 #ifndef CONFIG_SLOB
 	unsigned			memcg_kmem_skip_account:1;
 #endif

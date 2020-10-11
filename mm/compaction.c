@@ -7,7 +7,6 @@
  * lifting
  *
  * Copyright IBM Corp. 2007-2010 Mel Gorman <mel@csn.ul.ie>
- * Copyright (C) 2019 XiaoMi, Inc.
  */
 #include <linux/cpu.h>
 #include <linux/swap.h>
@@ -633,18 +632,50 @@ isolate_freepages_range(struct compact_control *cc,
 }
 
 /* Similar to reclaim, but different enough that they don't share logic */
-static bool too_many_isolated(struct zone *zone)
+static bool __too_many_isolated(struct zone *zone, int safe)
 {
 	unsigned long active, inactive, isolated;
 
-	inactive = node_page_state(zone->zone_pgdat, NR_INACTIVE_FILE) +
+	if (safe) {
+		inactive = node_page_state_snapshot(zone->zone_pgdat,
+			NR_INACTIVE_FILE) +
+			node_page_state_snapshot(zone->zone_pgdat,
+			NR_INACTIVE_ANON);
+		active = node_page_state_snapshot(zone->zone_pgdat,
+			NR_ACTIVE_FILE) +
+			node_page_state_snapshot(zone->zone_pgdat,
+			NR_ACTIVE_ANON);
+		isolated = node_page_state_snapshot(zone->zone_pgdat,
+			NR_ISOLATED_FILE) +
+			node_page_state_snapshot(zone->zone_pgdat,
+			NR_ISOLATED_ANON);
+	} else {
+		inactive = node_page_state(zone->zone_pgdat, NR_INACTIVE_FILE) +
 			node_page_state(zone->zone_pgdat, NR_INACTIVE_ANON);
-	active = node_page_state(zone->zone_pgdat, NR_ACTIVE_FILE) +
+		active = node_page_state(zone->zone_pgdat, NR_ACTIVE_FILE) +
 			node_page_state(zone->zone_pgdat, NR_ACTIVE_ANON);
-	isolated = node_page_state(zone->zone_pgdat, NR_ISOLATED_FILE) +
+		isolated = node_page_state(zone->zone_pgdat, NR_ISOLATED_FILE) +
 			node_page_state(zone->zone_pgdat, NR_ISOLATED_ANON);
+	}
 
 	return isolated > (inactive + active) / 2;
+}
+
+/* Similar to reclaim, but different enough that they don't share logic */
+static bool too_many_isolated(struct compact_control *cc)
+{
+	/*
+	 * __too_many_isolated(safe=0) is fast but inaccurate, because it
+	 * doesn't account for the vm_stat_diff[] counters.  So if it looks
+	 * like too_many_isolated() is about to return true, fall back to the
+	 * slower, more accurate zone_page_state_snapshot().
+	 */
+	if (unlikely(__too_many_isolated(cc->zone, 0))) {
+		if (cc->mode != MIGRATE_ASYNC)
+			return __too_many_isolated(cc->zone, 1);
+	}
+
+	return false;
 }
 
 /**
@@ -684,7 +715,7 @@ isolate_migratepages_block(struct compact_control *cc, unsigned long low_pfn,
 	 * list by either parallel reclaimers or compaction. If there are,
 	 * delay for some time until fewer pages are isolated
 	 */
-	while (unlikely(too_many_isolated(zone))) {
+	while (unlikely(too_many_isolated(cc))) {
 		/* async migration should just abort */
 		if (cc->mode == MIGRATE_ASYNC)
 			return 0;
@@ -1351,7 +1382,7 @@ static enum compact_result __compact_finished(struct zone *zone,
 		 * other migratetype buddy lists.
 		 */
 		if (find_suitable_fallback(area, order, migratetype,
-						true, &can_steal, cc->order) != -1) {
+						true, &can_steal) != -1) {
 
 			/* movable pages are OK in any pageblock */
 			if (migratetype == MIGRATE_MOVABLE)

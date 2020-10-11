@@ -1,7 +1,6 @@
 /* internal.h: mm/ internal definitions
  *
  * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -233,7 +232,7 @@ unsigned long
 isolate_migratepages_range(struct compact_control *cc,
 			   unsigned long low_pfn, unsigned long end_pfn);
 int find_suitable_fallback(struct free_area *area, unsigned int order,
-			int migratetype, bool only_stealable, bool *can_steal, unsigned int start_order);
+			int migratetype, bool only_stealable, bool *can_steal);
 
 #endif
 
@@ -569,6 +568,12 @@ static inline bool is_migrate_highatomic_page(struct page *page)
 
 void setup_zone_pageset(struct zone *zone);
 
-#define IS_ZONE_MOVABLE_CMA_ZONE(z) IS_ZONE_MOVABLE_CMA_ZONE_IDX(\
-					zone_idx(z))
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER
+extern bool lmk_kill_possible(void);
+#else
+static inline bool lmk_kill_possible(void)
+{
+	return false;
+}
+#endif
 #endif	/* __MM_INTERNAL_H */

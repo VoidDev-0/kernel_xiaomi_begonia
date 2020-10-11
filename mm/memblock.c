@@ -696,7 +696,6 @@ static int __init_memblock memblock_remove_range(struct memblock_type *type,
 
 int __init_memblock memblock_remove(phys_addr_t base, phys_addr_t size)
 {
-	kmemleak_free_part(__va(base), size);
 	return memblock_remove_range(&memblock.memory, base, size);
 }
 
@@ -708,28 +707,19 @@ int __init_memblock memblock_free(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("   memblock_free: [%pa-%pa] %pF\n",
 		     &base, &end, (void *)_RET_IP_);
 
-	kmemleak_free_part_phys(base, size);
+	if (base < memblock.current_limit)
+		kmemleak_free_part(__va(base), size);
 	return memblock_remove_range(&memblock.reserved, base, size);
-}
-
-static int __init_memblock memblock_reserve_region(phys_addr_t base,
-						   phys_addr_t size,
-						   int nid,
-						   unsigned long flags)
-{
-	struct memblock_type *_rgn = &memblock.reserved;
-
-	memblock_dbg("memblock_reserve: [%#016llx-%#016llx] flags %#02lx %pF\n",
-		     (unsigned long long)base,
-		     (unsigned long long)base + size - 1,
-		     flags, (void *)_RET_IP_);
-
-	return memblock_add_range(_rgn, base, size, nid, flags);
 }
 
 int __init_memblock memblock_reserve(phys_addr_t base, phys_addr_t size)
 {
-	return memblock_reserve_region(base, size, MAX_NUMNODES, 0);
+	phys_addr_t end = base + size - 1;
+
+	memblock_dbg("memblock_reserve: [%pa-%pa] %pF\n",
+		     &base, &end, (void *)_RET_IP_);
+
+	return memblock_add_range(&memblock.reserved, base, size, MAX_NUMNODES, 0);
 }
 
 /**
@@ -935,7 +925,7 @@ void __init_memblock __next_mem_range(u64 *idx, int nid, ulong flags,
 			r = &type_b->regions[idx_b];
 			r_start = idx_b ? r[-1].base + r[-1].size : 0;
 			r_end = idx_b < type_b->cnt ?
-				r->base : ULLONG_MAX;
+				r->base : (phys_addr_t)ULLONG_MAX;
 
 			/*
 			 * if idx_b advanced past idx_a,
@@ -1051,7 +1041,7 @@ void __init_memblock __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 			r = &type_b->regions[idx_b];
 			r_start = idx_b ? r[-1].base + r[-1].size : 0;
 			r_end = idx_b < type_b->cnt ?
-				r->base : ULLONG_MAX;
+				r->base : (phys_addr_t)ULLONG_MAX;
 			/*
 			 * if idx_b advanced past idx_a,
 			 * break out to advance idx_a
@@ -1159,7 +1149,9 @@ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 		 * The min_count is set to 0 so that memblock allocations are
 		 * never reported as leaks.
 		 */
-		kmemleak_alloc_phys(found, size, 0, 0);
+		if (found < memblock.current_limit)
+			kmemleak_alloc(__va(found), size, 0, 0);
+
 		return found;
 	}
 	return 0;
@@ -1169,6 +1161,8 @@ phys_addr_t __init memblock_alloc_range(phys_addr_t size, phys_addr_t align,
 					phys_addr_t start, phys_addr_t end,
 					ulong flags)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_range_nid(size, align, start, end, NUMA_NO_NODE,
 					flags);
 }
@@ -1198,6 +1192,8 @@ again:
 
 phys_addr_t __init __memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys_addr_t max_addr)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_base_nid(size, align, max_addr, NUMA_NO_NODE,
 				       MEMBLOCK_NONE);
 }
@@ -1217,6 +1213,8 @@ phys_addr_t __init memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys
 
 phys_addr_t __init memblock_alloc(phys_addr_t size, phys_addr_t align)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);
 }
 
@@ -1499,6 +1497,11 @@ static phys_addr_t __init_memblock __find_max_addr(phys_addr_t limit)
 	return max_addr;
 }
 
+phys_addr_t __init_memblock memblock_max_addr(phys_addr_t limit)
+{
+	return __find_max_addr(limit);
+}
+
 void __init memblock_enforce_memory_limit(phys_addr_t limit)
 {
 	phys_addr_t max_addr = (phys_addr_t)ULLONG_MAX;
@@ -1563,7 +1566,8 @@ void __init memblock_mem_limit_remove_map(phys_addr_t limit)
 	memblock_cap_memory_range(0, max_addr);
 }
 
-static int __init_memblock memblock_search(struct memblock_type *type, phys_addr_t addr)
+static int __init_memblock memblock_search(struct memblock_type *type,
+					phys_addr_t addr)
 {
 	unsigned int left = 0, right = type->cnt;
 
@@ -1636,6 +1640,14 @@ int __init_memblock memblock_is_region_memory(phys_addr_t base, phys_addr_t size
 		return 0;
 	return (memblock.memory.regions[idx].base +
 		 memblock.memory.regions[idx].size) >= end;
+}
+
+bool __init_memblock memblock_overlaps_memory(phys_addr_t base,
+					      phys_addr_t size)
+{
+	memblock_cap_size(base, &size);
+
+	return memblock_overlaps_region(&memblock.memory, base, size);
 }
 
 /**

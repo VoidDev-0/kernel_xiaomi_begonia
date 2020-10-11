@@ -216,11 +216,6 @@ static int ssmr_get(u64 *pa, u32 *size, u32 feat)
 	phys_addr_t ssmr_pa;
 	unsigned long ssmr_size;
 
-	if (ssmr_offline(&ssmr_pa, &ssmr_size, true, feat)) {
-		KREE_ERR("ssmr offline failed (feat:%d)!\n", feat);
-		return TZ_RESULT_ERROR_GENERIC;
-	}
-
 	*pa = (u64) ssmr_pa;
 	*size = (u32) ssmr_size;
 	if (!(*pa) || !(*size)) {
@@ -237,10 +232,6 @@ static int ssmr_get(u64 *pa, u32 *size, u32 feat)
 /*free region to SSMR*/
 static int ssmr_put(u32 feat)
 {
-	if (ssmr_online(feat)) {
-		KREE_ERR("ssmr online failed (feat:%d)!\n", feat);
-		return TZ_RESULT_ERROR_GENERIC;
-	}
 	KREE_DEBUG("ssmr online passed!\n");
 	return TZ_RESULT_SUCCESS;
 }

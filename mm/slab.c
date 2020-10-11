@@ -965,10 +965,10 @@ static int setup_kmem_cache_node(struct kmem_cache *cachep,
 	 * To protect lockless access to n->shared during irq disabled context.
 	 * If n->shared isn't NULL in irq disabled context, accessing to it is
 	 * guaranteed to be valid until irq is re-enabled, because it will be
-	 * freed after synchronize_sched().
+	 * freed after synchronize_rcu().
 	 */
 	if (old_shared && force_change)
-		synchronize_sched();
+		synchronize_rcu();
 
 fail:
 	kfree(old_shared);
@@ -3486,11 +3486,11 @@ free_done:
  * Release an obj back to its cache. If the obj has a constructed state, it must
  * be in this state _before_ it is released.  Called with disabled ints.
  */
-static inline void __cache_free(struct kmem_cache *cachep, void *objp,
-				unsigned long caller)
+static __always_inline void __cache_free(struct kmem_cache *cachep, void *objp,
+					 unsigned long caller)
 {
 	/* Put the object into the quarantine, don't touch it for now. */
-	if (kasan_slab_free(cachep, objp))
+	if (kasan_slab_free(cachep, objp, _RET_IP_))
 		return;
 
 	___cache_free(cachep, objp, caller);
@@ -4343,7 +4343,8 @@ static int leaks_show(struct seq_file *m, void *p)
 	if (x[0] == x[1]) {
 		/* Increase the buffer size */
 		mutex_unlock(&slab_mutex);
-		m->private = kzalloc(x[0] * 4 * sizeof(unsigned long), GFP_KERNEL);
+		m->private = kcalloc(x[0] * 4, sizeof(unsigned long),
+				     GFP_KERNEL);
 		if (!m->private) {
 			/* Too bad, we are really out */
 			m->private = x;

@@ -198,7 +198,7 @@ static inline bool kmem_cache_has_cpu_partial(struct kmem_cache *s)
 /*
  * Tracking user of a slab.
  */
-#define TRACK_ADDRS_COUNT 8
+#define TRACK_ADDRS_COUNT 16
 struct track {
 	unsigned long addr;	/* Called from address */
 #ifdef CONFIG_STACKTRACE
@@ -659,12 +659,12 @@ static void slab_fix(struct kmem_cache *s, char *fmt, ...)
 }
 
 static bool freelist_corrupted(struct kmem_cache *s, struct page *page,
-			       void **freelist, void *nextfree)
+			       void *freelist, void *nextfree)
 {
 	if ((s->flags & SLAB_CONSISTENCY_CHECKS) &&
-	    !check_valid_pointer(s, page, nextfree) && freelist) {
-		object_err(s, page, *freelist, "Freechain corrupt");
-		*freelist = NULL;
+	    !check_valid_pointer(s, page, nextfree)) {
+		object_err(s, page, freelist, "Freechain corrupt");
+		freelist = NULL;
 		slab_fix(s, "Isolate corrupted freechain");
 		return true;
 	}
@@ -711,14 +711,24 @@ static void print_trailer(struct kmem_cache *s, struct page *page, u8 *p)
 		print_section(KERN_ERR, "Padding ", p + off,
 			      size_from_object(s) - off);
 
-	BUG();
+	dump_stack();
 }
+
+#ifdef CONFIG_SLUB_DEBUG_PANIC_ON
+static void slab_panic(const char *cause)
+{
+	panic("%s\n", cause);
+}
+#else
+static inline void slab_panic(const char *cause) {}
+#endif
 
 void object_err(struct kmem_cache *s, struct page *page,
 			u8 *object, char *reason)
 {
 	slab_bug(s, "%s", reason);
 	print_trailer(s, page, object);
+	slab_panic(reason);
 }
 
 static __printf(3, 4) void slab_err(struct kmem_cache *s, struct page *page,
@@ -732,7 +742,8 @@ static __printf(3, 4) void slab_err(struct kmem_cache *s, struct page *page,
 	va_end(args);
 	slab_bug(s, "%s", buf);
 	print_page_info(page);
-	BUG();
+	dump_stack();
+	slab_panic("slab error");
 }
 
 static void init_object(struct kmem_cache *s, void *object, u8 val)
@@ -754,6 +765,7 @@ static void init_object(struct kmem_cache *s, void *object, u8 val)
 static void restore_bytes(struct kmem_cache *s, char *message, u8 data,
 						void *from, void *to)
 {
+	slab_panic("object poison overwritten");
 	slab_fix(s, "Restoring 0x%p-0x%p=0x%x\n", from, to - 1, data);
 	memset(from, data, to - from);
 }
@@ -1354,7 +1366,7 @@ static inline void dec_slabs_node(struct kmem_cache *s, int node,
 							int objects) {}
 
 static bool freelist_corrupted(struct kmem_cache *s, struct page *page,
-			       void **freelist, void *nextfree)
+			       void *freelist, void *nextfree)
 {
 	return false;
 }
@@ -1370,13 +1382,13 @@ static inline void kmalloc_large_node_hook(void *ptr, size_t size, gfp_t flags)
 	kasan_kmalloc_large(ptr, size, flags);
 }
 
-static inline void kfree_hook(const void *x)
+static __always_inline void kfree_hook(void *x)
 {
 	kmemleak_free(x);
-	kasan_kfree_large(x);
+	kasan_kfree_large(x, _RET_IP_);
 }
 
-static inline void *slab_free_hook(struct kmem_cache *s, void *x)
+static __always_inline void *slab_free_hook(struct kmem_cache *s, void *x)
 {
 	void *freeptr;
 
@@ -1404,7 +1416,7 @@ static inline void *slab_free_hook(struct kmem_cache *s, void *x)
 	 * kasan_slab_free() may put x into memory quarantine, delaying its
 	 * reuse. In this case the object's freelist pointer is changed.
 	 */
-	kasan_slab_free(s, x);
+	kasan_slab_free(s, x, _RET_IP_);
 	return freeptr;
 }
 
@@ -1490,6 +1502,25 @@ static int init_cache_random_seq(struct kmem_cache *s)
 	return 0;
 }
 
+/* re-initialize the random sequence cache */
+static int reinit_cache_random_seq(struct kmem_cache *s)
+{
+	int err;
+
+	if (s->random_seq) {
+		cache_random_seq_destroy(s);
+		err = init_cache_random_seq(s);
+
+		if (err) {
+			pr_err("SLUB: Unable to re-initialize random sequence cache for %s\n",
+				s->name);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 /* Initialize each random sequence freelist per cache */
 static void __init init_freelist_randomization(void)
 {
@@ -1561,6 +1592,10 @@ static bool shuffle_freelist(struct kmem_cache *s, struct page *page)
 }
 #else
 static inline int init_cache_random_seq(struct kmem_cache *s)
+{
+	return 0;
+}
+static inline int reinit_cache_random_seq(struct kmem_cache *s)
 {
 	return 0;
 }
@@ -1696,6 +1731,7 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
 	if (current->reclaim_state)
 		current->reclaim_state->reclaimed_slab += pages;
 	memcg_uncharge_slab(page, order, s);
+	kasan_alloc_pages(page, order);
 	__free_pages(page, order);
 }
 
@@ -2053,7 +2089,7 @@ static void deactivate_slab(struct kmem_cache *s, struct page *page,
 		 * 'freelist' is already corrupted.  So isolate all objects
 		 * starting at 'freelist'.
 		 */
-		if (freelist_corrupted(s, page, &freelist, nextfree))
+		if (freelist_corrupted(s, page, freelist, nextfree))
 			break;
 
 		do {
@@ -3563,7 +3599,7 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 
 	kasan_cache_create(s, &size, &s->flags);
 #ifdef CONFIG_SLUB_DEBUG
-	if (flags & SLAB_RED_ZONE && 0) {
+	if (flags & SLAB_RED_ZONE) {
 		/*
 		 * Add some empty padding so that we can catch
 		 * overwrites from earlier objects rather than let
@@ -3687,8 +3723,9 @@ static void list_slab_objects(struct kmem_cache *s, struct page *page,
 #ifdef CONFIG_SLUB_DEBUG
 	void *addr = page_address(page);
 	void *p;
-	unsigned long *map = kzalloc(BITS_TO_LONGS(page->objects) *
-				     sizeof(long), GFP_ATOMIC);
+	unsigned long *map = kcalloc(BITS_TO_LONGS(page->objects),
+				     sizeof(long),
+				     GFP_ATOMIC);
 	if (!map)
 		return;
 	slab_err(s, page, text, s->name);
@@ -3935,7 +3972,8 @@ void kfree(const void *x)
 	page = virt_to_head_page(x);
 	if (unlikely(!PageSlab(page))) {
 		BUG_ON(!PageCompound(page));
-		kfree_hook(x);
+		kfree_hook(object);
+		kasan_alloc_pages(page, compound_order(page));
 		__free_pages(page, compound_order(page));
 		return;
 	}
@@ -4454,8 +4492,9 @@ static long validate_slab_cache(struct kmem_cache *s)
 {
 	int node;
 	unsigned long count = 0;
-	unsigned long *map = kmalloc(BITS_TO_LONGS(oo_objects(s->max)) *
-				sizeof(unsigned long), GFP_KERNEL);
+	unsigned long *map = kmalloc_array(BITS_TO_LONGS(oo_objects(s->max)),
+					   sizeof(unsigned long),
+					   GFP_KERNEL);
 	struct kmem_cache_node *n;
 
 	if (!map)
@@ -4615,8 +4654,9 @@ static int list_locations(struct kmem_cache *s, char *buf,
 	unsigned long i;
 	struct loc_track t = { 0, 0, NULL };
 	int node;
-	unsigned long *map = kmalloc(BITS_TO_LONGS(oo_objects(s->max)) *
-				     sizeof(unsigned long), GFP_KERNEL);
+	unsigned long *map = kmalloc_array(BITS_TO_LONGS(oo_objects(s->max)),
+					   sizeof(unsigned long),
+					   GFP_KERNEL);
 	struct kmem_cache_node *n;
 
 	if (!map || !alloc_loc_track(&t, PAGE_SIZE / sizeof(struct location),
@@ -4792,7 +4832,7 @@ static ssize_t show_slab_objects(struct kmem_cache *s,
 	int x;
 	unsigned long *nodes;
 
-	nodes = kzalloc(sizeof(unsigned long) * nr_node_ids, GFP_KERNEL);
+	nodes = kcalloc(nr_node_ids, sizeof(unsigned long), GFP_KERNEL);
 	if (!nodes)
 		return -ENOMEM;
 
@@ -4959,6 +4999,7 @@ static ssize_t order_store(struct kmem_cache *s,
 		return -EINVAL;
 
 	calculate_sizes(s, order);
+	reinit_cache_random_seq(s);
 	return length;
 }
 
@@ -5196,6 +5237,7 @@ static ssize_t red_zone_store(struct kmem_cache *s,
 		s->flags |= SLAB_RED_ZONE;
 	}
 	calculate_sizes(s, -1);
+	reinit_cache_random_seq(s);
 	return length;
 }
 SLAB_ATTR(red_zone);
@@ -5216,6 +5258,7 @@ static ssize_t poison_store(struct kmem_cache *s,
 		s->flags |= SLAB_POISON;
 	}
 	calculate_sizes(s, -1);
+	reinit_cache_random_seq(s);
 	return length;
 }
 SLAB_ATTR(poison);
@@ -5237,6 +5280,7 @@ static ssize_t store_user_store(struct kmem_cache *s,
 		s->flags |= SLAB_STORE_USER;
 	}
 	calculate_sizes(s, -1);
+	reinit_cache_random_seq(s);
 	return length;
 }
 SLAB_ATTR(store_user);
@@ -5343,7 +5387,7 @@ static int show_stat(struct kmem_cache *s, char *buf, enum stat_item si)
 	unsigned long sum  = 0;
 	int cpu;
 	int len;
-	int *data = kmalloc(nr_cpu_ids * sizeof(int), GFP_KERNEL);
+	int *data = kmalloc_array(nr_cpu_ids, sizeof(int), GFP_KERNEL);
 
 	if (!data)
 		return -ENOMEM;
@@ -5925,5 +5969,4 @@ ssize_t slabinfo_write(struct file *file, const char __user *buffer,
 {
 	return -EIO;
 }
-
 #endif /* CONFIG_SLABINFO */

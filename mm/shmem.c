@@ -256,7 +256,7 @@ static int shmem_reserve_inode(struct super_block *sb)
 static void shmem_free_inode(struct super_block *sb)
 {
 	struct shmem_sb_info *sbinfo = SHMEM_SB(sb);
-	if (sbinfo && sbinfo->max_inodes) {
+	if (sbinfo->max_inodes) {
 		spin_lock(&sbinfo->stat_lock);
 		sbinfo->free_inodes++;
 		spin_unlock(&sbinfo->stat_lock);
@@ -1426,9 +1426,12 @@ static struct page *shmem_swapin(swp_entry_t swap, gfp_t gfp,
 {
 	struct vm_area_struct pvma;
 	struct page *page;
+	struct vm_fault vmf;
 
 	shmem_pseudo_vma_init(&pvma, info, index);
-	page = swapin_readahead(swap, gfp, &pvma, 0);
+	vmf.vma = &pvma;
+	vmf.address = 0;
+	page = swap_cluster_readahead(swap, gfp, &vmf);
 	shmem_pseudo_vma_destroy(&pvma);
 
 	return page;

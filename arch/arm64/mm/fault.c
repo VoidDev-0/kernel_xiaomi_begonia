@@ -402,6 +402,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	int fault, sig, code, major = 0;
 	unsigned long vm_flags = VM_READ | VM_WRITE | VM_EXEC;
 	unsigned int mm_flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
+	struct vm_area_struct *vma = NULL;
 
 	if (notify_page_fault(regs, esr))
 		return 0;
@@ -444,7 +445,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	 * let's try a speculative page fault without grabbing the
 	 * mmap_sem.
 	 */
-	fault = handle_speculative_fault(mm, addr, mm_flags);
+	fault = handle_speculative_fault(mm, addr, mm_flags, &vma);
 	if (fault != VM_FAULT_RETRY)
 		goto done;
 

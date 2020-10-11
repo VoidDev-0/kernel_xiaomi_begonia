@@ -1091,7 +1091,8 @@ const char * const vmstat_text[] = {
 	"nr_vmscan_immediate_reclaim",
 	"nr_dirtied",
 	"nr_written",
-	"", /* nr_indirectly_reclaimable */
+	"nr_indirectly_reclaimable",
+	"nr_unreclaimable_pages",
 
 	/* enum writeback_stat_item counters */
 	"nr_dirty_threshold",
@@ -1101,6 +1102,7 @@ const char * const vmstat_text[] = {
 	/* enum vm_event_item counters */
 	"pgpgin",
 	"pgpgout",
+	"pgpgoutclean",
 	"pswpin",
 	"pswpout",
 
@@ -1217,14 +1219,8 @@ const char * const vmstat_text[] = {
 	"swap_ra",
 	"swap_ra_hit",
 #endif
-
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	"zmc_lru_migrated",
-	"zmc_lru_migration_nomem",
-#endif /* CONFIG_ZONE_MOVABLE_CMA */
-
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	"speculative_pgfault",
+	"speculative_pgfault"
 #endif
 #endif /* CONFIG_VM_EVENT_COUNTERS */
 };
@@ -1577,11 +1573,9 @@ static void zoneinfo_show_print(struct seq_file *m, pg_data_t *pgdat,
 	}
 	seq_printf(m,
 		   "\n  node_unreclaimable:  %u"
-		   "\n  start_pfn:           %lu"
-		   "\n  node_inactive_ratio: %u",
+		   "\n  start_pfn:           %lu",
 		   pgdat->kswapd_failures >= MAX_RECLAIM_RETRIES,
-		   zone->zone_start_pfn,
-		   zone->zone_pgdat->inactive_ratio);
+		   zone->zone_start_pfn);
 	seq_putc(m, '\n');
 }
 
@@ -1683,10 +1677,6 @@ static int vmstat_show(struct seq_file *m, void *arg)
 	unsigned long *l = arg;
 	unsigned long off = l - (unsigned long *)m->private;
 
-	/* Skip hidden vmstat items. */
-	if (*vmstat_text[off] == '\0')
-		return 0;
-
 	seq_puts(m, vmstat_text[off]);
 	seq_put_decimal_ull(m, " ", *l);
 	seq_putc(m, '\n');
@@ -1721,7 +1711,7 @@ static const struct file_operations vmstat_file_operations = {
 
 #ifdef CONFIG_SMP
 static DEFINE_PER_CPU(struct delayed_work, vmstat_work);
-int sysctl_stat_interval __read_mostly = HZ;
+int sysctl_stat_interval __read_mostly = 60 * HZ;
 
 #ifdef CONFIG_PROC_FS
 static void refresh_vm_stats(struct work_struct *work)
@@ -1781,7 +1771,7 @@ int vmstat_refresh(struct ctl_table *table, int write,
 
 static void vmstat_update(struct work_struct *w)
 {
-	if (refresh_cpu_vm_stats(true)) {
+	if (refresh_cpu_vm_stats(true) && !cpu_isolated(smp_processor_id())) {
 		/*
 		 * Counters were updated so we expect more updates
 		 * to occur in the future. Keep on running the
@@ -1873,12 +1863,13 @@ static void vmstat_shepherd(struct work_struct *w)
 	for_each_online_cpu(cpu) {
 		struct delayed_work *dw = &per_cpu(vmstat_work, cpu);
 
-		if (!delayed_work_pending(dw) && need_update(cpu))
+		if (!delayed_work_pending(dw) && need_update(cpu) &&
+		     !cpu_isolated(cpu))
 			queue_delayed_work_on(cpu, mm_percpu_wq, dw, 0);
 	}
 	put_online_cpus();
 
-	schedule_delayed_work(&shepherd,
+	queue_delayed_work(system_power_efficient_wq, &shepherd,
 		round_jiffies_relative(sysctl_stat_interval));
 }
 
@@ -1890,7 +1881,7 @@ static void __init start_shepherd_timer(void)
 		INIT_DEFERRABLE_WORK(per_cpu_ptr(&vmstat_work, cpu),
 			vmstat_update);
 
-	schedule_delayed_work(&shepherd,
+	queue_delayed_work(system_power_efficient_wq, &shepherd,
 		round_jiffies_relative(sysctl_stat_interval));
 }
 
