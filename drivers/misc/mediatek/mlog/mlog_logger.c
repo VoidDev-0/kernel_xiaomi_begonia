@@ -326,11 +326,6 @@ static void mlog_meminfo(void)
 		gpu_page_cache = B2K(gpu_page_cache);
 #endif
 
-#ifdef CONFIG_ZRAM
-	/* zram memory usage */
-	zram = zram_mlog();
-#endif
-
 	/* user pages */
 	active = P2K(global_node_page_state(NR_ACTIVE_ANON) +
 			global_node_page_state(NR_ACTIVE_FILE));
