@@ -994,7 +994,7 @@ start:
 			goto nextsi;
 		}
 		if (cluster) {
-			if (!(si->flags & SWP_FILE))
+			if (si->flags & SWP_BLKDEV)
 				n_ret = swap_alloc_cluster(si, swp_entries);
 		} else
 			n_ret = scan_swap_map_slots(si, SWAP_HAS_CACHE,
@@ -3234,7 +3234,7 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 		p->cluster_next = 1 + (prandom_u32() % p->highest_bit);
 		nr_cluster = DIV_ROUND_UP(maxpages, SWAPFILE_CLUSTER);
 
-		cluster_info = kvcalloc(nr_cluster, sizeof(*cluster_info),
+		cluster_info = kvzalloc(nr_cluster * sizeof(*cluster_info),
 					GFP_KERNEL);
 		if (!cluster_info) {
 			error = -ENOMEM;
@@ -3269,8 +3269,7 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 	}
 	/* frontswap enabled? set up bit-per-page map for frontswap */
 	if (IS_ENABLED(CONFIG_FRONTSWAP))
-		frontswap_map = kvcalloc(BITS_TO_LONGS(maxpages),
-					 sizeof(long),
+		frontswap_map = kvzalloc(BITS_TO_LONGS(maxpages) * sizeof(long),
 					 GFP_KERNEL);
 
 	if (p->bdev &&(swap_flags & SWAP_FLAG_DISCARD) && swap_discardable(p)) {

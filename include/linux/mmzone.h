@@ -183,6 +183,7 @@ enum node_stat_item {
 	NR_VMSCAN_IMMEDIATE,	/* Prioritise for reclaim when writeback ends */
 	NR_DIRTIED,		/* page dirtyings since bootup */
 	NR_WRITTEN,		/* page writings since bootup */
+	NR_KERNEL_MISC_RECLAIMABLE,	/* reclaimable non-slab kernel pages */
 	NR_INDIRECTLY_RECLAIMABLE_BYTES, /* measured in bytes */
 	NR_UNRECLAIMABLE_PAGES,
 	NR_VM_NODE_STAT_ITEMS
@@ -441,7 +442,7 @@ struct zone {
 	 * adjust_managed_page_count() should be used instead of directly
 	 * touching zone->managed_pages and totalram_pages.
 	 */
-	unsigned long		managed_pages;
+	atomic_long_t		managed_pages;
 	unsigned long		spanned_pages;
 	unsigned long		present_pages;
 
@@ -529,6 +530,11 @@ enum pgdat_flags {
 					 */
 	PGDAT_RECLAIM_LOCKED,		/* prevents concurrent reclaim */
 };
+
+static inline unsigned long zone_managed_pages(struct zone *zone)
+{
+	return (unsigned long)atomic_long_read(&zone->managed_pages);
+}
 
 static inline unsigned long zone_end_pfn(const struct zone *zone)
 {
@@ -843,7 +849,7 @@ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
  */
 static inline bool managed_zone(struct zone *zone)
 {
-	return zone->managed_pages;
+	return zone_managed_pages(zone);
 }
 
 /* Returns true if a zone has memory */
