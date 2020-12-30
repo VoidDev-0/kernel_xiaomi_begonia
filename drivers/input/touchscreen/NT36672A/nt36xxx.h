@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
+#include <linux/pm_qos.h>
 #include <linux/platform_device.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
@@ -191,6 +192,7 @@ struct nvt_ts_data {
 	/*bit map indicate which slot(0~9) has been used*/
 	unsigned long slot_map[BITS_TO_LONGS(10)];
 	bool fw_debug;
+	struct pm_qos_request pm_qos_req;
 #ifdef CONFIG_TOUCHSCREEN_NVT_DEBUG_FS
 	struct dentry *debugfs;
 #endif
