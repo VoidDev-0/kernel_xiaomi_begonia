@@ -684,6 +684,11 @@ ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
 else
 KBUILD_CFLAGS   += -O3
+KBUILD_CFLAGS	+= $(call cc-option, -mcpu=cortex-a76 -mtune=cortex-a76)
+ifdef CONFIG_INLINE_OPTIMIZATION
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=600
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=750
+endif
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
