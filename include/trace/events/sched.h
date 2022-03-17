@@ -1142,17 +1142,15 @@ TRACE_EVENT(sched_tune_boostgroup_update,
  */
 TRACE_EVENT(sched_boost_task,
 
-	TP_PROTO(struct task_struct *tsk, unsigned long util, long margin,
-		unsigned int util_min),
+	TP_PROTO(struct task_struct *tsk, unsigned long util, long margin),
 
-	TP_ARGS(tsk, util, margin, util_min),
+	TP_ARGS(tsk, util, margin),
 
 	TP_STRUCT__entry(
-		__array(char,	comm,	TASK_COMM_LEN)
-		__field(pid_t,		pid)
-		__field(unsigned long,	util)
-		__field(long,		margin)
-		__field(unsigned int,	util_min)
+		__array( char,	comm,	TASK_COMM_LEN		)
+		__field( pid_t,		pid			)
+		__field( unsigned long,	util			)
+		__field( long,		margin			)
 
 	),
 
@@ -1161,14 +1159,12 @@ TRACE_EVENT(sched_boost_task,
 		__entry->pid	= tsk->pid;
 		__entry->util	= util;
 		__entry->margin	= margin;
-		__entry->util_min = util_min;
 	),
 
-	TP_printk("comm=%s pid=%d util=%lu margin=%ld util_min=%u",
+	TP_printk("comm=%s pid=%d util=%lu margin=%ld",
 		  __entry->comm, __entry->pid,
 		  __entry->util,
-		  __entry->margin,
-		  __entry->util_min)
+		  __entry->margin)
 );
 
 /*
