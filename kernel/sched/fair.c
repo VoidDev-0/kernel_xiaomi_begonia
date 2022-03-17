@@ -3208,15 +3208,9 @@ __update_load_avg_se(u64 now, int cpu, struct cfs_rq *cfs_rq, struct sched_entit
 static int
 __update_load_avg_cfs_rq(u64 now, int cpu, struct cfs_rq *cfs_rq)
 {
-	int ret;
-	bool __maybe_unused is_root_rq = (&cpu_rq(cpu)->cfs == cfs_rq);
-
-	ret = ___update_load_avg(now, cpu, &cfs_rq->avg,
-		scale_load_down(cfs_rq->load.weight),
-		cfs_rq->curr != NULL, cfs_rq, NULL);
-
-	trace_uclamp_util_cfs(is_root_rq, cpu, cfs_rq);
-	return ret;
+	return ___update_load_avg(now, cpu, &cfs_rq->avg,
+			scale_load_down(cfs_rq->load.weight),
+			cfs_rq->curr != NULL, cfs_rq, NULL);
 }
 
 /*
@@ -6787,18 +6781,10 @@ boosted_task_util(struct task_struct *task)
 {
 	unsigned long util = task_util_est(task);
 	long margin = schedtune_task_margin(task);
-	unsigned long util_min = uclamp_task_effective_util(task, UCLAMP_MIN);
-	unsigned long util_max = uclamp_task_effective_util(task, UCLAMP_MAX);
 
-	trace_sched_boost_task(task, util, margin, util_min);
+	trace_sched_boost_task(task, util, margin);
 
-	/* only boosted for heavy task */
-	if (util >= stune_task_threshold) {
-		util = util + margin;
-		return clamp(util, util_min, util_max);
-	} else {
-		return clamp(util, util_min, util_max);
-	}
+	return util + margin;
 }
 
 void get_task_util(struct task_struct *p, unsigned long *util,
@@ -12457,10 +12443,6 @@ const struct sched_class fair_sched_class = {
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	.task_change_group	= task_change_group_fair,
-#endif
-
-#ifdef CONFIG_UCLAMP_TASK
-	.uclamp_enabled		= 1,
 #endif
 
 #ifdef CONFIG_SCHED_WALT
