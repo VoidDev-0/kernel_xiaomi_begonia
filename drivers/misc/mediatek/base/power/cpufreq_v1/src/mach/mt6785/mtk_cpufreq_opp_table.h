@@ -125,7 +125,7 @@
 
 /* 6785T */
 /* for DVFS OPP table L */
-#define CPU_DVFS_FREQ0_LL_6785T		2000000		/* KHz */
+#define CPU_DVFS_FREQ0_LL_6785T		2200000		/* KHz */
 #define CPU_DVFS_FREQ1_LL_6785T		1933000		/* KHz */
 #define CPU_DVFS_FREQ2_LL_6785T		1866000		/* KHz */
 #define CPU_DVFS_FREQ3_LL_6785T		1800000		/* KHz */
@@ -143,7 +143,7 @@
 #define CPU_DVFS_FREQ15_LL_6785T	500000		/* KHz */
 
 /* for DVFS OPP table B */
-#define CPU_DVFS_FREQ0_L_6785T		2050000		/* KHz */
+#define CPU_DVFS_FREQ0_L_6785T		2000000		/* KHz */
 #define CPU_DVFS_FREQ1_L_6785T		1986000		/* KHz */
 #define CPU_DVFS_FREQ2_L_6785T		1923000		/* KHz */
 #define CPU_DVFS_FREQ3_L_6785T		1860000		/* KHz */
