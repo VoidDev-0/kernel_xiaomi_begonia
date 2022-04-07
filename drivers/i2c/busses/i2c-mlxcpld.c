@@ -48,7 +48,7 @@
 #define MLXCPLD_I2C_MAX_ADDR_LEN	4
 #define MLXCPLD_I2C_RETR_NUM		2
 #define MLXCPLD_I2C_XFER_TO		500000 /* usec */
-#define MLXCPLD_I2C_POLL_TIME		2000   /* usec */
+#define MLXCPLD_I2C_POLL_TIME		200   /* usec */
 
 /* LPC I2C registers */
 #define MLXCPLD_LPCI2C_LPF_REG		0x0
