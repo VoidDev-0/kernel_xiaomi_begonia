@@ -165,7 +165,7 @@ static void get_new_key_from_sha(struct ppp_mppe_state * state)
 static void mppe_rekey(struct ppp_mppe_state * state, int initial_key)
 {
 	struct scatterlist sg_in[1], sg_out[1];
-	SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
+	SYNC_SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
 
 	skcipher_request_set_tfm(req, state->arc4);
 	skcipher_request_set_callback(req, 0, NULL, NULL);
@@ -363,7 +363,7 @@ mppe_compress(void *arg, unsigned char *ibuf, unsigned char *obuf,
 	      int isize, int osize)
 {
 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
-	SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
+	SYNC_SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
 	int proto;
 	int err;
 	struct scatterlist sg_in[1], sg_out[1];
@@ -477,7 +477,7 @@ mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
 		int osize)
 {
 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
-	SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
+	SYNC_SKCIPHER_REQUEST_ON_STACK(req, state->arc4);
 	unsigned ccount;
 	int flushed = MPPE_BITS(ibuf) & MPPE_BIT_FLUSHED;
 	struct scatterlist sg_in[1], sg_out[1];
