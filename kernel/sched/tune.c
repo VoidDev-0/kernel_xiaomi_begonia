@@ -33,7 +33,6 @@ struct schedtune {
 	/* Boost value for tasks on that SchedTune CGroup */
 	int boost;
 
-#ifdef CONFIG_SCHED_WALT
 	/* Toggle ability to override sched boost enabled */
 	bool sched_boost_no_override;
 
@@ -49,7 +48,8 @@ struct schedtune {
 	 * restore the value following any temporary changes to that flag.
 	 */
 	bool sched_boost_enabled_backup;
-
+	
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * Controls whether tasks of this cgroup should be colocated with each
 	 * other and tasks of other cgroups that have the same flag turned on.
@@ -110,10 +110,10 @@ struct uclamp_se *task_schedtune_uclamp(struct task_struct *tsk, int clamp_id)
 static struct schedtune
 root_schedtune = {
 	.boost	= 0,
-#ifdef CONFIG_SCHED_WALT
 	.sched_boost_no_override = false,
 	.sched_boost_enabled = true,
 	.sched_boost_enabled_backup = true,
+#ifdef CONFIG_SCHED_WALT
 	.colocate = false,
 	.colocate_update_disabled = false,
 #endif
@@ -236,6 +236,8 @@ bool task_sched_boost(struct task_struct *p)
 	return st->sched_boost_enabled;
 }
 
+#endif /* CONFIG_SCHED_WALT */
+
 static u64
 sched_boost_override_read(struct cgroup_subsys_state *css,
 			struct cftype *cft)
@@ -254,8 +256,6 @@ static int sched_boost_override_write(struct cgroup_subsys_state *css,
 
 	return 0;
 }
-
-#endif /* CONFIG_SCHED_WALT */
 
 static void
 schedtune_cpu_update(int cpu, u64 now)
@@ -979,12 +979,12 @@ static int prefer_idle_write_wrapper(struct cgroup_subsys_state *css,
 #endif
 
 static struct cftype files[] = {
-#ifdef CONFIG_SCHED_WALT
 	{
 		.name = "sched_boost_no_override",
 		.read_u64 = sched_boost_override_read,
 		.write_u64 = sched_boost_override_write_wrapper,
 	},
+#ifdef CONFIG_SCHED_WALT
 	{
 		.name = "sched_boost_enabled",
 		.read_u64 = sched_boost_enabled_read,
