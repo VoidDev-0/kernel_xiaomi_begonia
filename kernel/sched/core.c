@@ -3494,8 +3494,10 @@ void scheduler_tick(void)
 	cal_cpu_load(cpu);
 #endif
 
+#ifdef CONFIG_SCHED_WALT
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
+#endif
 
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 	qos_prefetch_tick(cpu);
@@ -3505,9 +3507,6 @@ void scheduler_tick(void)
 	if (update_preferred_cluster(grp, curr, old_load))
 		set_preferred_cluster(grp);
 	rcu_read_unlock();
-
-	if (curr->sched_class == &fair_sched_class)
-		check_for_migration(rq, curr);
 }
 
 #ifdef CONFIG_NO_HZ_FULL

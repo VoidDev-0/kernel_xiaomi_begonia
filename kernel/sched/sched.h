@@ -2168,6 +2168,7 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 }
 
 
+
 #ifdef CONFIG_SCHED_WALT
 u64 freq_policy_load(struct rq *rq);
 #endif
@@ -2230,6 +2231,15 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 	return (util >= capacity) ? capacity : util;
 }
 
+#endif /* CONFIG_SCHED_WALT */
+
+static inline unsigned long cpu_util_rt(int cpu)
+{
+	struct rt_rq *rt_rq = &(cpu_rq(cpu)->rt);
+
+	return rt_rq->avg.util_avg;
+}
+
 static inline unsigned long
 cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
@@ -2239,8 +2249,6 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 	return min(cpu_util(cpu) + cpu_util_rt(cpu), capacity_orig_of(cpu));
 #endif
 }
-
-#endif /* CONFIG_SCHED_WALT */
 
 extern unsigned int capacity_margin_freq;
 
@@ -3080,6 +3088,13 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 void note_task_waking(struct task_struct *p, u64 wallclock);
 
+static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
+
+static inline int sched_boost(void)
+{
+	return 0;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -3089,13 +3104,6 @@ struct sched_cluster;
 static inline bool task_sched_boost(struct task_struct *p)
 {
 	return true;
-}
-
-static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
-
-static inline int sched_boost(void)
-{
-	return 0;
 }
 
 static inline bool hmp_capable(void) { return false; }

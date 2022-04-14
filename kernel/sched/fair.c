@@ -5844,13 +5844,6 @@ static unsigned long __cpu_norm_util(unsigned long util, unsigned long capacity)
 #define EAS_CPU_NXT	1
 #define EAS_CPU_BKP	2
 
-static inline unsigned long cpu_util_rt(int cpu)
-{
-	struct rt_rq *rt_rq = &(cpu_rq(cpu)->rt);
-
-	return rt_rq->avg.util_avg;
-}
-
 
 /*
  * cpu_util_without: compute cpu utilization without any contributions from *p

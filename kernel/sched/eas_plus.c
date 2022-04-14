@@ -1825,6 +1825,13 @@ void task_rotate_work_init(void)
 			task_rotate_reset_uclamp_work_func);
 }
 
+static inline int is_reserved_eas_plus(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return (rq->active_balance != 0);
+}
+
 void task_check_for_rotation(struct rq *src_rq)
 {
 	u64 wc, wait, max_wait = 0, run, max_run = 0;
@@ -1857,7 +1864,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 		
-		if (is_reserved(i))
+		if (is_reserved_eas_plus(i))
 			continue;
 
 		if (!rq->misfit_task_load || rq->curr->sched_class !=
@@ -1880,7 +1887,7 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (capacity_orig_of(i) <= capacity_orig_of(src_cpu))
 			continue;
 
-		if (is_reserved(i))
+		if (is_reserved_eas_plus(i))
 			continue;
 
 		if (rq->curr->sched_class != &fair_sched_class)
